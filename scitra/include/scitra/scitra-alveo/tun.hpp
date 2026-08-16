@@ -21,8 +21,8 @@
 #pragma once
 
 #include "scitra/packet.hpp"
-#include "scitra/scitra-tun/debug.hpp"
-#include "scitra/scitra-tun/error_codes.hpp"
+#include "scitra/scitra-alveo/debug.hpp"
+#include "scitra/scitra-alveo/error_codes.hpp"
 
 
 #include <fcntl.h>

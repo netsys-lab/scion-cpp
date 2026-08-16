@@ -108,11 +108,15 @@ target_sources(scitra-alveo PRIVATE
     "src/scitra-alveo/socket.cpp"
     "src/scitra-alveo/sys_net.cpp"
     "src/scitra-alveo/tui.cpp"
+    "src/scitra-alveo/dataplane/interface.cpp"
+    "src/scitra-alveo/dataplane/device.c"
+    "src/scitra-alveo/dataplane/p4_target.c"
     "${CMAKE_CURRENT_BINARY_DIR}/version.cpp"
 )
 target_include_directories(scitra-alveo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vitis-p4-driver"
 )
 target_link_libraries(scitra-alveo PRIVATE
     scion-cpp
@@ -124,6 +128,7 @@ target_link_libraries(scitra-alveo PRIVATE
     PkgConfig::libcap
     PkgConfig::libpsx
     PkgConfig::libsystemd
+    "${CMAKE_CURRENT_SOURCE_DIR}/vitis-p4-driver/lib/libvitisnetp4drv.a"
 )
 target_compile_definitions(scitra-alveo PRIVATE
     SCION_NO_DEBUG=1
@@ -133,36 +138,36 @@ set_target_properties(scitra-alveo PROPERTIES
     OUTPUT_NAME "scitra-alveo"
     DEBUG_POSTFIX "-d"
 )
-install(TARGETS scitra-alveo
-    COMPONENT SCITRA_TUN
-    RUNTIME
-)
-install(FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/scitra-alveo.conf"
-    "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/scitra-policy.json"
-    COMPONENT SCITRA_TUN
-    # Only install to an absolute path if CPACK_SET_DESTDIR is requested explicitly.
-    DESTINATION $<IF:$<BOOL:${CPACK_SET_DESTDIR}>,/etc/scion/,${CMAKE_INSTALL_SYSCONFDIR}/scion/>
-)
-install(FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/debian/config-dns"
-    "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/debian/config-routes"
-    COMPONENT SCITRA_TUN
-    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ WORLD_READ
-    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/scitra-alveo/"
-)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/debian/scitra-alveo.service"
-    COMPONENT SCITRA_TUN
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system/"
-)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/scitra-alveo.8.gz"
-    COMPONENT SCITRA_TUN
-    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/man/man8/"
-)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/scitra-policy.json.5.gz"
-    COMPONENT SCITRA_TUN
-    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/man/man5/"
-)
+# install(TARGETS scitra-alveo
+#     COMPONENT SCITRA_ALVEO
+#     RUNTIME
+# )
+# install(FILES
+#     "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/scitra-alveo.conf"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/scitra-policy.json"
+#     COMPONENT SCITRA_ALVEO
+#     # Only install to an absolute path if CPACK_SET_DESTDIR is requested explicitly.
+#     DESTINATION $<IF:$<BOOL:${CPACK_SET_DESTDIR}>,/etc/scion/,${CMAKE_INSTALL_SYSCONFDIR}/scion/>
+# )
+# install(FILES
+#     "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/debian/config-dns"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/debian/config-routes"
+#     COMPONENT SCITRA_ALVEO
+#     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ WORLD_READ
+#     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/scitra-alveo/"
+# )
+# install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/install/scitra-alveo/debian/scitra-alveo.service"
+#     COMPONENT SCITRA_ALVEO
+#     DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system/"
+# )
+# install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/scitra-alveo.8.gz"
+#     COMPONENT SCITRA_ALVEO
+#     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/man/man8/"
+# )
+# install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/man/scitra-policy.json.5.gz"
+#     COMPONENT SCITRA_ALVEO
+#     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/man/man5/"
+# )
 endif(LINUX)
 
 

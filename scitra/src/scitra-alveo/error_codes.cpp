@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "scitra/scitra-tun/error_codes.hpp"
+#include "scitra/scitra-alveo/error_codes.hpp"
 #include "scion/error_codes.hpp"
 
 

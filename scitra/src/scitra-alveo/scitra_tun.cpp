@@ -19,10 +19,10 @@
 // SOFTWARE.
 
 #include "scitra/crypto.hpp"
-#include "scitra/scitra-tun/debug.hpp"
-#include "scitra/scitra-tun/scitra_tun.hpp"
-#include "scitra/scitra-tun/service.hpp"
-#include "scitra/scitra-tun/sys_net.hpp"
+#include "scitra/scitra-alveo/debug.hpp"
+#include "scitra/scitra-alveo/scitra_tun.hpp"
+#include "scitra/scitra-alveo/service.hpp"
+#include "scitra/scitra-alveo/sys_net.hpp"
 
 #include <spdlog/spdlog.h>
 
@@ -151,99 +151,105 @@ ScitraTun::ScitraTun(const Arguments& args)
         }
     }
 
+    // Connect to fast path
+    if (auto ec = dataplane.initialize(args.sysfile); ec) {
+        throw std::runtime_error(std::format("Initializing driver driver failed: {}",
+            fmtError(ec)));
+    }
+
     // Create TUN device
-    if (auto tun = createTunQueue(tunDevice); tun.has_value()) {
-        tunQueues.emplace_back(std::move(*tun));
-    } else {
-        throw std::runtime_error(std::format("Can't create TUN interface with name '{}': {}",
-            args.tunDevice, tun.error().message()));
-    }
-    for (int i = 1; i < args.queues; ++i) {
-        if (auto tun = createTunQueue(tunDevice); tun.has_value()) {
-            tunQueues.emplace_back(std::move(*tun));
-        } else {
-            throw std::runtime_error(
-                std::format("Can't add queue {} to TUN device '{}': {}",
-                    i, args.tunDevice, tun.error().message()));
-        }
-    }
+    // if (auto tun = createTunQueue(tunDevice); tun.has_value()) {
+    //     tunQueues.emplace_back(std::move(*tun));
+    // } else {
+    //     throw std::runtime_error(std::format("Can't create TUN interface with name '{}': {}",
+    //         args.tunDevice, tun.error().message()));
+    // }
+    // for (int i = 1; i < args.queues; ++i) {
+    //     if (auto tun = createTunQueue(tunDevice); tun.has_value()) {
+    //         tunQueues.emplace_back(std::move(*tun));
+    //     } else {
+    //         throw std::runtime_error(
+    //             std::format("Can't add queue {} to TUN device '{}': {}",
+    //                 i, args.tunDevice, tun.error().message()));
+    //     }
+    // }
 
     // Open netlink socket to configure link settings and routing table
-    NetlinkRoute netlink;
-    if (auto ec = netlink.open(); ec) {
-        throw std::runtime_error(
-            std::format("Can't open netlink socket: {}", ec.message()));
-    }
+    // NetlinkRoute netlink;
+    // if (auto ec = netlink.open(); ec) {
+    //     throw std::runtime_error(
+    //         std::format("Can't open netlink socket: {}", ec.message()));
+    // }
 
     // Configure TUN interface MTU
-    const auto underlaySize = publicIP.is6() ? IPv6_UNDERLAY_SIZE : IPv4_UNDERLAY_SIZE;
-    if (args.underlayMtu) {
-        const auto scionMtu = std::max(0, args.underlayMtu - underlaySize);
-        spdlog::info("Replacing SCION MTU {} from daemon with {}", localAS.mtu, scionMtu);
-        localAS.mtu = scionMtu;
-    }
-    auto publicMtu = netlink.getInterfaceMTU(netDevice);
-    if (isError(publicMtu)) {
-        throw std::runtime_error(
-            std::format("Can't get MTU of '{}': {}", netDevice, fmtError(publicMtu.error())));
-    }
-    int tunMtu = args.tunMtu;
-    if (tunMtu <= 0) {
-        // By default, the MTU of the TUN interface is set to the maximum IPv6 packet size usable
-        // for intra-AS communication with an empty SCION path, so that the effective Path MTU with
-        // non-empty paths is always smaller than the interface MTU.
-        tunMtu = std::min((int)localAS.mtu + underlaySize, (int)*publicMtu);
-        tunMtu -= minScionOverhead(publicIP.is6());
-    }
-    tunMtu = std::max(tunMtu, 1280); // can't set the MTU lower then the minimum for IPv6
-    spdlog::info("TUN MTU = {} ({} SCION MTU, {} public interface)",
-        tunMtu, localAS.mtu, *publicMtu);
-    if (auto ec = netlink.setInterfaceMTU(tunDevice, (std::uint32_t)tunMtu); ec) {
-        throw std::runtime_error(
-            std::format("Can't set MTU of '{}': {}", tunDevice, fmtError(ec)));
-    }
-    localAS.mtu = std::min(localAS.mtu, (std::uint32_t)(tunMtu + underlaySize));
+    // const auto underlaySize = publicIP.is6() ? IPv6_UNDERLAY_SIZE : IPv4_UNDERLAY_SIZE;
+    // if (args.underlayMtu) {
+    //     const auto scionMtu = std::max(0, args.underlayMtu - underlaySize);
+    //     spdlog::info("Replacing SCION MTU {} from daemon with {}", localAS.mtu, scionMtu);
+    //     localAS.mtu = scionMtu;
+    // }
+    // auto publicMtu = netlink.getInterfaceMTU(netDevice);
+    // if (isError(publicMtu)) {
+    //     throw std::runtime_error(
+    //         std::format("Can't get MTU of '{}': {}", netDevice, fmtError(publicMtu.error())));
+    // }
+    // int tunMtu = args.tunMtu;
+    // if (tunMtu <= 0) {
+    //     // By default, the MTU of the TUN interface is set to the maximum IPv6 packet size usable
+    //     // for intra-AS communication with an empty SCION path, so that the effective Path MTU with
+    //     // non-empty paths is always smaller than the interface MTU.
+    //     tunMtu = std::min((int)localAS.mtu + underlaySize, (int)*publicMtu);
+    //     tunMtu -= minScionOverhead(publicIP.is6());
+    // }
+    // tunMtu = std::max(tunMtu, 1280); // can't set the MTU lower then the minimum for IPv6
+    // spdlog::info("TUN MTU = {} ({} SCION MTU, {} public interface)",
+    //     tunMtu, localAS.mtu, *publicMtu);
+    // if (auto ec = netlink.setInterfaceMTU(tunDevice, (std::uint32_t)tunMtu); ec) {
+    //     throw std::runtime_error(
+    //         std::format("Can't set MTU of '{}': {}", tunDevice, fmtError(ec)));
+    // }
+    // localAS.mtu = std::min(localAS.mtu, (std::uint32_t)(tunMtu + underlaySize));
 
     // Configure TUN IP and Route
-    if (auto ec = netlink.setInterfaceState(tunDevice, true); ec) {
-        throw std::runtime_error(
-            std::format("Can't bring TUN interface up: {}", ec.message()));
-    }
-    if (auto ec = netlink.addAddress(tunIP, 128, tunDevice); ec) {
-        throw std::runtime_error(
-            std::format("Adding {} to TUN interface failed: {}", tunIP, ec.message()));
-    } else {
-        spdlog::info("Added primary IP {} to TUN interface", tunIP);
-    }
-    for (auto& ip : extraIPs) {
-        if (auto ec = netlink.addAddress(ip, 128, tunDevice); ec) {
-            throw std::runtime_error(
-                std::format("Adding {} to TUN interface failed: {}", ip, ec.message()));
-        } else {
-            spdlog::info("Added {} to TUN interface", ip);
-        }
-    }
+    // if (auto ec = netlink.setInterfaceState(tunDevice, true); ec) {
+    //     throw std::runtime_error(
+    //         std::format("Can't bring TUN interface up: {}", ec.message()));
+    // }
+    // if (auto ec = netlink.addAddress(tunIP, 128, tunDevice); ec) {
+    //     throw std::runtime_error(
+    //         std::format("Adding {} to TUN interface failed: {}", tunIP, ec.message()));
+    // } else {
+    //     spdlog::info("Added primary IP {} to TUN interface", tunIP);
+    // }
+    // for (auto& ip : extraIPs) {
+    //     if (auto ec = netlink.addAddress(ip, 128, tunDevice); ec) {
+    //         throw std::runtime_error(
+    //             std::format("Adding {} to TUN interface failed: {}", ip, ec.message()));
+    //     } else {
+    //         spdlog::info("Added {} to TUN interface", ip);
+    //     }
+    // }
 
     // Add route to fc00::/8 with TUN IP as the preferred source, so sockets bound to 0::/0 will
     // use the correct source IP even when extra IPs are present.
-    auto prefix = generic::IPAddress::MakeIPv6(0xfcull << 56, 0);
-    constexpr NetlinkRoute::PrefixLen plen = 8;
-    if (auto ec = netlink.addRoute(NetlinkRoute::TABLE_MAIN, prefix, plen, tunDevice, &tunIP); ec) {
-        // On slow systems, it can take a while for tunIP to become available after assignment.
-        constexpr int ADD_ROUTE_RETRIES = 2;
-        for (int i = 0; i < ADD_ROUTE_RETRIES; ++i) {
-            if (ec == std::errc::invalid_argument || ec == std::errc::address_not_available) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                spdlog::debug("Retrying netlink.addRoute");
-                ec = netlink.addRoute(NetlinkRoute::TABLE_MAIN, prefix, plen, tunDevice, &tunIP);
-            } else {
-                break;
-            }
-        }
-        if (ec) throw std::runtime_error(
-            std::format("Adding SCION-mapped IPv6 prefix route failed: {}", ec.message()));
-    }
-    spdlog::info("Added route to {}/{} via {} src {}", prefix, plen, tunDevice, tunIP);
+    // auto prefix = generic::IPAddress::MakeIPv6(0xfcull << 56, 0);
+    // constexpr NetlinkRoute::PrefixLen plen = 8;
+    // if (auto ec = netlink.addRoute(NetlinkRoute::TABLE_MAIN, prefix, plen, tunDevice, &tunIP); ec) {
+    //     // On slow systems, it can take a while for tunIP to become available after assignment.
+    //     constexpr int ADD_ROUTE_RETRIES = 2;
+    //     for (int i = 0; i < ADD_ROUTE_RETRIES; ++i) {
+    //         if (ec == std::errc::invalid_argument || ec == std::errc::address_not_available) {
+    //             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //             spdlog::debug("Retrying netlink.addRoute");
+    //             ec = netlink.addRoute(NetlinkRoute::TABLE_MAIN, prefix, plen, tunDevice, &tunIP);
+    //         } else {
+    //             break;
+    //         }
+    //     }
+    //     if (ec) throw std::runtime_error(
+    //         std::format("Adding SCION-mapped IPv6 prefix route failed: {}", ec.message()));
+    // }
+    // spdlog::info("Added route to {}/{} via {} src {}", prefix, plen, tunDevice, tunIP);
 
     // Link SCMP handlers
     pmtu = std::make_unique<PathMtuDiscoverer<>>(localAS.mtu);
@@ -325,6 +331,7 @@ void ScitraTun::stop()
         queue.cancel();
     eventTimer.cancel();
     signals.cancel();
+    dataplane.close();
 }
 
 void ScitraTun::join()

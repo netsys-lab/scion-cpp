@@ -22,11 +22,12 @@
 
 #include "scitra/packet.hpp"
 #include "scitra/translator.hpp"
-#include "scitra/scitra-tun/cli_args.hpp"
-#include "scitra/scitra-tun/flow.hpp"
-#include "scitra/scitra-tun/netlink.hpp"
-#include "scitra/scitra-tun/socket.hpp"
-#include "scitra/scitra-tun/tun.hpp"
+#include "scitra/scitra-alveo/cli_args.hpp"
+#include "scitra/scitra-alveo/flow.hpp"
+#include "scitra/scitra-alveo/netlink.hpp"
+#include "scitra/scitra-alveo/socket.hpp"
+#include "scitra/scitra-alveo/tun.hpp"
+#include "scitra/scitra-alveo/dataplane/interface.hpp"
 
 #include "scion/asio/addresses.hpp"
 #include "scion/daemon/co_client.hpp"
@@ -140,6 +141,9 @@ private:
     std::string netDevice;
     // Name of the TUN interface.
     std::string tunDevice;
+
+    // Alveo OpenNIC shell driver
+    Dataplane dataplane;
 
     // Queues of the TUN interface
     std::vector<TunQueue> tunQueues;

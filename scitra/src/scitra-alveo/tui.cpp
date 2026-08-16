@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "scitra/scitra-tun/scitra_tun.hpp"
+#include "scitra/scitra-alveo/scitra_tun.hpp"
 
 #include <imtui/imtui.h>
 #include <imtui/imtui-impl-ncurses.h>

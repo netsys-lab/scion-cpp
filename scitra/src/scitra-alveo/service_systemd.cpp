@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "scitra/scitra-tun/service.hpp"
+#include "scitra/scitra-alveo/service.hpp"
 #include <systemd/sd-daemon.h>
 #include <mutex>
 

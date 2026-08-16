@@ -24,7 +24,7 @@
 #include "scion/addr/generic_ip.hpp"
 #include "scion/path/path.hpp"
 #include "scitra/packet.hpp"
-#include "scitra/scitra-tun/error_codes.hpp"
+#include "scitra/scitra-alveo/error_codes.hpp"
 
 #include <atomic>
 #include <cstdint>

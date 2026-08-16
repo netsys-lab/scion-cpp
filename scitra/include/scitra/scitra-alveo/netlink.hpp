@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "scitra/scitra-tun/error_codes.hpp"
+#include "scitra/scitra-alveo/error_codes.hpp"
 #include "scion/addr/generic_ip.hpp"
 
 #include <boost/asio.hpp>

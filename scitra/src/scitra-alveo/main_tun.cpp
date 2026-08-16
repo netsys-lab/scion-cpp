@@ -18,10 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "scitra/scitra-tun/cli_args.hpp"
-#include "scitra/scitra-tun/scitra_tun.hpp"
-#include "scitra/scitra-tun/sys_net.hpp"
-#include "scitra/scitra-tun/service.hpp"
+#include "scitra/scitra-alveo/cli_args.hpp"
+#include "scitra/scitra-alveo/scitra_tun.hpp"
+#include "scitra/scitra-alveo/sys_net.hpp"
+#include "scitra/scitra-alveo/service.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -53,19 +53,19 @@ static std::unique_ptr<Arguments> parseCommandLine(int argc, char* argv[])
 
     auto args = std::make_unique<Arguments>();
     CLI::App app{"scitra-alveo: SCION-IP Translator for OpenNIC on Alveo Accelerators"};
+    app.add_option("--sysfile", args->sysfile, "Path to Alveo OpenNIC device in /sys.");
+    // -------
     app.add_option("public_interface,--interface", args->publicInterface,
-        "Main network interface through which other SCION hosts can be reached")
-        ->required();
+        "Main network interface through which other SCION hosts can be reached");
     app.add_option("public_address,--address", args->publicAddress,
-        "IP address for SCION. Must either be an IPv4 or SCION-mapped IPv6 address.")
-        ->required();
+        "IP address for SCION. Must either be an IPv4 or SCION-mapped IPv6 address.");
     app.add_option("-e,--extra", args->extraAddresses,
         "Additional addresses assigned to the TUN interface for MPTCP connections.");
     app.add_option("-d,--sciond", args->sciond,
         "SCION daemon address (default \"127.0.0.1:30255\")")
         ->envname("SCION_DAEMON_ADDRESS");
     app.add_option("-n,--tun-name", args->tunDevice,
-        "Name of the TUN device created by scitra-tun (default \"scion\")");
+        "Name of the TUN device created by scitra-alveo (default \"scion\")");
     app.add_option("-a,--tun-addr", args->tunAddress,
         "Override the address assigned to the TUN device with another IPv6"
         " address. By default, the TUN address is derived from the public"

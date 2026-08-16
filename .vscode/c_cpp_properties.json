@@ -19,7 +19,8 @@
                 "${workspaceFolder}/interposer/src",
                 "${workspaceFolder}/scitra/include",
                 "${workspaceFolder}/src",
-                "${workspaceFolder}/tests"
+                "${workspaceFolder}/tests",
+                "${workspaceFolder}/scitra/vitis-p4-driver"
             ],
             "defines": [
                 "AGRPC_BOOST_ASIO"

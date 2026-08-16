@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "scitra/scitra-tun/error_codes.hpp"
-#include "scitra/scitra-tun/netlink.hpp"
+#include "scitra/scitra-alveo/error_codes.hpp"
+#include "scitra/scitra-alveo/netlink.hpp"
 
 #include "scion/posix/sockaddr.hpp"
 

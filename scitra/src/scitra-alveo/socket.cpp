@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "scitra/scitra-tun/socket.hpp"
+#include "scitra/scitra-alveo/socket.hpp"
 #include "scion/asio/addresses.hpp"
 
 #include <spdlog/spdlog.h>

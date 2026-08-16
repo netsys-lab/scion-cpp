@@ -30,6 +30,8 @@
 
 struct Arguments
 {
+    std::string sysfile = "/sys/devices/pci0000:b2/0000:b2:00.0/0000:b3:00.0/resource2";
+    // --------
     std::string publicInterface;
     std::string publicAddress;
     std::vector<std::string> extraAddresses;
