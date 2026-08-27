@@ -21,9 +21,9 @@ using scion::Error;
 
 static constexpr size_t TARGET_COUNT = 3;
 
-const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x300000;
-const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x400000;
-const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x500000;
+const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x200000;
+const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x300000;
+const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x400000;
 
 static Maybe<std::vector<std::byte>> formatKey(
     const XilVitisNetP4TableConfig& cfg,
