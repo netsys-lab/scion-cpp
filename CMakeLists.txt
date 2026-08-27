@@ -74,23 +74,23 @@ find_package(protobuf CONFIG)
 # Assume protobuf has been found even if Protobuf_FOUND is false when building
 # on Windows. FindProtobuf.cmake sets Protobuf_FOUND to false even if protobuf
 # works.
-if (Protobuf_FOUND OR WIN32)
-
-    set(GRPC_LIBS protobuf::libprotobuf)
-
-else()
-
-    find_package(PkgConfig)
-    pkg_check_modules(protobuf REQUIRED IMPORTED_TARGET protobuf)
-
-    add_Executable(protobuf::protoc IMPORTED)
-    find_program(PROTOC_EXECUTABLE protoc)
-    set_target_properties(protobuf::protoc PROPERTIES
-        IMPORTED_LOCATION "${PROTOC_EXECUTABLE}")
-
-    set(GRPC_LIBS PkgConfig::protobuf)
-
-endif()
+#if (Protobuf_FOUND OR WIN32)
+#
+#    set(GRPC_LIBS protobuf::libprotobuf)
+#
+#else()
+#
+#    find_package(PkgConfig)
+#    pkg_check_modules(protobuf REQUIRED IMPORTED_TARGET protobuf)
+#
+#    add_Executable(protobuf::protoc IMPORTED)
+#    find_program(PROTOC_EXECUTABLE protoc)
+#    set_target_properties(protobuf::protoc PROPERTIES
+#        IMPORTED_LOCATION "${PROTOC_EXECUTABLE}")
+#
+#    set(GRPC_LIBS PkgConfig::protobuf)
+#
+#endif()
 
 find_package(grpc CONFIG)
 
