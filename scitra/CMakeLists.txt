@@ -168,8 +168,27 @@ set_target_properties(scitra-alveo PROPERTIES
 #     COMPONENT SCITRA_ALVEO
 #     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/man/man5/"
 # )
-endif(LINUX)
 
+add_executable(driver-test)
+target_sources(driver-test PRIVATE
+    "src/scitra-alveo/driver_test.cpp"
+    "src/scitra-alveo/dataplane/interface.cpp"
+    "src/scitra-alveo/dataplane/device.c"
+    "src/scitra-alveo/dataplane/p4_target.c"
+)
+target_include_directories(driver-test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vitis-p4-driver"
+)
+target_link_libraries(driver-test PRIVATE
+    scion-cpp
+    CLI11::CLI11
+    spdlog::spdlog
+    "${CMAKE_CURRENT_SOURCE_DIR}/vitis-p4-driver/lib/libvitisnetp4drv.a"
+)
+
+endif(LINUX)
 
 # ==========
 # Unit Tests

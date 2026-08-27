@@ -38,9 +38,23 @@ XilVitisNetP4ReturnType init_target(
         return result;
     }
 
+    target->tables = calloc(config->TableListSize, sizeof(target->tables[0]));
+    for (uint32_t i = 0; i < config->TableListSize; ++i)
+    {
+        result = XilVitisNetP4TableInit(&target->tables[i], &env,
+            &config->TableListPtr[i]->Config);
+        if (result != XIL_VITIS_NET_P4_SUCCESS)
+        {
+            printf("Error initializing table %s: %d (%s)\n",
+                config->TableListPtr[i]->NameStringPtr, result,
+                XilVitisNetP4ReturnTypeToString(result));
+            return result;
+        }
+    }
+
+    target->counters = calloc(config->CounterListSize, sizeof(target->counters[0]));
     for (uint32_t i = 0; i < config->CounterListSize; ++i)
     {
-        target->counters = calloc(config->CounterListSize, sizeof(target->counters[0]));
         result = XilVitisNetP4CounterInit(&target->counters[i], &env,
             &config->CounterListPtr[i]->Config);
         if (result != XIL_VITIS_NET_P4_SUCCESS)
@@ -51,6 +65,7 @@ XilVitisNetP4ReturnType init_target(
             return result;
         }
     }
+    return XIL_VITIS_NET_P4_SUCCESS;
 }
 
 XilVitisNetP4ReturnType exit_target(struct P4Target* target)
@@ -64,6 +79,12 @@ XilVitisNetP4ReturnType exit_target(struct P4Target* target)
             printf("Error %d (%s)\n", result, XilVitisNetP4ReturnTypeToString(result));
         }
     }
+    if (target->tables)
+    {
+        for (uint32_t i = 0; i < target->config->TableListSize; ++i)
+            XilVitisNetP4TableExit(&target->tables[i]);
+        free(target->tables);
+    }
     if (target->counters)
     {
         for (uint32_t i = 0; i < target->config->CounterListSize; ++i)
@@ -71,6 +92,27 @@ XilVitisNetP4ReturnType exit_target(struct P4Target* target)
         free(target->counters);
     }
     memset(target, 0, sizeof(struct P4Target));
+    return XIL_VITIS_NET_P4_SUCCESS;
+}
+
+XilVitisNetP4TableCtx* get_table_by_name(struct P4Target *target, const char* name)
+{
+    for (uint32_t i = 0; i < target->config->TableListSize; ++i)
+    {
+        if (strcmp(target->config->TableListPtr[i]->NameStringPtr, name) == 0)
+            return &target->tables[i];
+    }
+    return NULL;
+}
+
+XilVitisNetP4CounterCtx* get_counter_by_name(struct P4Target *target, const char* name)
+{
+    for (uint32_t i = 0; i < target->config->CounterListSize; ++i)
+    {
+        if (strcmp(target->config->CounterListPtr[i]->NameStringPtr, name) == 0)
+            return &target->counters[i];
+    }
+    return NULL;
 }
 
 XilVitisNetP4ReturnType env_read32(
