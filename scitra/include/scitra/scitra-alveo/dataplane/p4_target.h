@@ -14,6 +14,14 @@ struct P4Target
     XilVitisNetP4TargetCtx context;
     XilVitisNetP4TableCtx* tables;
     XilVitisNetP4CounterCtx* counters;
+    // FIXED: env must live as long as the target itself. Both
+    // XilVitisNetP4TargetInit and XilVitisNetP4CounterInit store the raw
+    // EnvIf pointer they're given (confirmed via source:
+    // counter_extern.c's CtxPtr->EnvIfPtr = EnvIfPtr, no copy) -- a local
+    // variable in init_target() would dangle once that function returns,
+    // causing crashes (calling a garbage function pointer) whenever
+    // counter/table functions are called later.
+    XilVitisNetP4EnvIf env;
 };
 
 XilVitisNetP4ReturnType init_target(

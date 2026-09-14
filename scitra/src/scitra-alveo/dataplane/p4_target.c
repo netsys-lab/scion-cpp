@@ -18,14 +18,13 @@ XilVitisNetP4ReturnType init_target(
     target->base_addr = base_addr;
     target->config = config;
 
-    XilVitisNetP4EnvIf env;
-    env.LogError = &env_log;
-    env.LogInfo = &env_log;
-    env.WordRead32 = &env_read32;
-    env.WordWrite32 = &env_write32;
-    env.UserCtx = target;
+    target->env.LogError = &env_log;
+    target->env.LogInfo = &env_log;
+    target->env.WordRead32 = &env_read32;
+    target->env.WordWrite32 = &env_write32;
+    target->env.UserCtx = target;
 
-    result = XilVitisNetP4TargetInit(&target->context, &env, config);
+    result = XilVitisNetP4TargetInit(&target->context, &target->env, config);
     if (result == XIL_VITIS_NET_P4_TARGET_ERR_INCOMPATIBLE_SW_HW)
     {
         printf("Found IP and SW version differences:\n\r");
@@ -41,7 +40,7 @@ XilVitisNetP4ReturnType init_target(
     target->tables = calloc(config->TableListSize, sizeof(target->tables[0]));
     for (uint32_t i = 0; i < config->TableListSize; ++i)
     {
-        result = XilVitisNetP4TableInit(&target->tables[i], &env,
+        result = XilVitisNetP4TableInit(&target->tables[i], &target->env,
             &config->TableListPtr[i]->Config);
         if (result != XIL_VITIS_NET_P4_SUCCESS)
         {
@@ -55,7 +54,7 @@ XilVitisNetP4ReturnType init_target(
     target->counters = calloc(config->CounterListSize, sizeof(target->counters[0]));
     for (uint32_t i = 0; i < config->CounterListSize; ++i)
     {
-        result = XilVitisNetP4CounterInit(&target->counters[i], &env,
+        result = XilVitisNetP4CounterInit(&target->counters[i], &target->env,
             &config->CounterListPtr[i]->Config);
         if (result != XIL_VITIS_NET_P4_SUCCESS)
         {

@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "scitra/scitra-alveo/dataplane/interface.hpp"
 #include "scion/bit_stream.hpp"
 
@@ -21,9 +22,13 @@ using scion::Error;
 
 static constexpr size_t TARGET_COUNT = 3;
 
-const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x200000;
-const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x300000;
-const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x400000;
+//const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x200000;
+//const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x300000;
+//const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x400000;
+
+const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x180000;
+const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x1C0000;
+const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x100000;
 
 static Maybe<std::vector<std::byte>> formatKey(
     const XilVitisNetP4TableConfig& cfg,
@@ -133,6 +138,7 @@ public:
     std::error_code initialize(const std::string& sysfile) noexcept
     {
         if (m_open) return DriverError::AlreadyOpen;
+        m_sysfile = sysfile;
         std::memset(&m_targets, 0, sizeof(m_targets));
         std::memset(&m_targets, 0, sizeof(m_device));
 
@@ -202,6 +208,7 @@ public:
         auto target = &m_targets[prog];
         printf("=== %s ===\n", target->prog_name);
         if (target->counters == NULL) return DriverError::InternalError;
+        fprintf(stderr, "DEBUG printAllCounters: target=%p config=%p counters=%p CounterListSize=%u\n", (void*)target, (void*)target->config, (void*)target->counters, target->config ? target->config->CounterListSize : 999999);
         for (uint32_t i = 0; i < target->config->CounterListSize; ++i)
         {
             printf("%s =", target->config->CounterListPtr[i]->NameStringPtr);
@@ -235,15 +242,38 @@ public:
         auto res = XilVitisNetP4TableGetActionId(tab, const_cast<char*>(action), &actionId);
         if (res) return res;
 
-        const auto& cfg = m_targets[prog].config->TableListPtr[0]->Config;
+        decltype(&m_targets[prog].config->TableListPtr[0]->Config) cfgPtr = nullptr;
+        for (uint32_t ti = 0; ti < m_targets[prog].config->TableListSize; ++ti) {
+            if (strcmp(m_targets[prog].config->TableListPtr[ti]->NameStringPtr, name) == 0) {
+                cfgPtr = &m_targets[prog].config->TableListPtr[ti]->Config;
+                break;
+            }
+        }
+        if (!cfgPtr) return DriverError::NotFound;
+        const auto& cfg = *cfgPtr;
         auto key = formatKey(cfg, keys);
         if (!key) return key.error();
 
         auto response = formatActionParams(*cfg.ActionListPtr[actionId], params);
         if (!response) return response.error();
 
-        return XilVitisNetP4TableInsert(tab,
-            (uint8_t*)key->data(), NULL, 0, actionId, (uint8_t*)response->data());
+        fprintf(stderr, "DEBUG tableInsert: key.data()=%p key.size()=%zu response.data()=%p response.size()=%zu\n",
+            (void*)key->data(), key->size(), (void*)response->data(), response->size());
+        // FIXED: added retry-with-reset for the known intermittent CAM
+        // busy/INTERNAL_ASSERTION race. XilVitisNetP4TableReset operates
+        // on the table's own TableCtx, regardless of underlying CAM mode.
+        XilVitisNetP4ReturnType insertResult;
+        for (int attempt = 0; attempt < 5; ++attempt) {
+            insertResult = XilVitisNetP4TableInsert(tab,
+                (uint8_t*)key->data(), NULL, 0, actionId, (uint8_t*)response->data());
+            if (insertResult != XIL_VITIS_NET_P4_GENERAL_ERR_INTERNAL_ASSERTION)
+                break;
+            if (attempt < 4) {
+                XilVitisNetP4TableReset(tab);
+                usleep(50000);
+            }
+        }
+        return insertResult;
     }
 
     std::error_code tableUpdate(
@@ -260,15 +290,33 @@ public:
         auto res = XilVitisNetP4TableGetActionId(tab, const_cast<char*>(action), &actionId);
         if (res) return res;
 
-        const auto& cfg = m_targets[prog].config->TableListPtr[0]->Config;
+        decltype(&m_targets[prog].config->TableListPtr[0]->Config) cfgPtr = nullptr;
+        for (uint32_t ti = 0; ti < m_targets[prog].config->TableListSize; ++ti) {
+            if (strcmp(m_targets[prog].config->TableListPtr[ti]->NameStringPtr, name) == 0) {
+                cfgPtr = &m_targets[prog].config->TableListPtr[ti]->Config;
+                break;
+            }
+        }
+        if (!cfgPtr) return DriverError::NotFound;
+        const auto& cfg = *cfgPtr;
         auto key = formatKey(cfg, keys);
         if (!key) return key.error();
 
         auto response = formatActionParams(*cfg.ActionListPtr[actionId], params);
         if (!response) return response.error();
 
-        return XilVitisNetP4TableUpdate(tab,
-            (uint8_t*)key->data(), NULL, actionId, (uint8_t*)response->data());
+        XilVitisNetP4ReturnType updateResult;
+        for (int attempt = 0; attempt < 5; ++attempt) {
+            updateResult = XilVitisNetP4TableUpdate(tab,
+                (uint8_t*)key->data(), NULL, actionId, (uint8_t*)response->data());
+            if (updateResult != XIL_VITIS_NET_P4_GENERAL_ERR_INTERNAL_ASSERTION)
+                break;
+            if (attempt < 4) {
+                XilVitisNetP4TableReset(tab);
+                usleep(50000);
+            }
+        }
+        return updateResult;
     }
 
     std::error_code tableDelete(
@@ -279,7 +327,15 @@ public:
         auto tab = get_table_by_name(&m_targets[prog], name);
         if (!tab) return DriverError::NotFound;
 
-        const auto& cfg = m_targets[prog].config->TableListPtr[0]->Config;
+        decltype(&m_targets[prog].config->TableListPtr[0]->Config) cfgPtr = nullptr;
+        for (uint32_t ti = 0; ti < m_targets[prog].config->TableListSize; ++ti) {
+            if (strcmp(m_targets[prog].config->TableListPtr[ti]->NameStringPtr, name) == 0) {
+                cfgPtr = &m_targets[prog].config->TableListPtr[ti]->Config;
+                break;
+            }
+        }
+        if (!cfgPtr) return DriverError::NotFound;
+        const auto& cfg = *cfgPtr;
         auto key = formatKey(cfg, keys);
         if (!key) return key.error();
 
@@ -357,15 +413,19 @@ static Maybe<std::vector<std::byte>> formatKey(
         unsigned int width;
         char type;
         int n;
-        if (std::sscanf("%u%c%n", p, &width, &type, &n) != 3)
+        if (std::sscanf(p, "%u%c%n", &width, &type, &n) != 2) {  // FIXED: %n does not count toward sscanf's return value
+            fprintf(stderr, "DEBUG formatKey: sscanf failed on p='%s'\n", p);
             return Error(DriverError::InternalError);
+        }
         if (type != 'c')
             return Error(DriverError::NotImplemented);
         for (auto w = (int)width; w > 0; w -= 64) {
             if (k >= keys.size())
                 return Error(DriverError::TooFewArguments);
-            if (!keyStream.serializeBits(keys[k++], std::min(w, 64), scion::NullStreamError))
+            if (!keyStream.serializeBits(keys[k++], std::min(w, 64), scion::NullStreamError)) {
+                fprintf(stderr, "DEBUG formatKey: serializeBits failed, w=%d\n", w);
                 return Error(DriverError::InternalError);
+            }
         }
         p += n;
         if (*p == ':') ++p;
@@ -388,7 +448,7 @@ static Maybe<std::vector<std::byte>> formatActionParams(
     }
     const uint32_t paramBytes = (paramBits + 7) / 8;
 
-    std::vector<std::byte> param(paramBytes);
+    std::vector<std::byte> param(std::max(paramBytes, 1u));
     scion::WriteStream paramStream(param);
     if (uint32_t paddingBits = -((uint32_t)paramBits) % 8; paddingBits) {
         paramStream.advanceBits(paddingBits, scion::NullStreamError);
@@ -400,8 +460,10 @@ static Maybe<std::vector<std::byte>> formatActionParams(
         for (auto w = (int)width; w > 0; w -= 64) {
             if (p >= params.size())
                 return Error(DriverError::TooFewArguments);
-            if (!paramStream.serializeBits(params[p++], std::min(w, 64), scion::NullStreamError))
+            if (!paramStream.serializeBits(params[p++], std::min(w, 64), scion::NullStreamError)) {
+                fprintf(stderr, "DEBUG formatActionParams: serializeBits failed, w=%d, paramBits total computed above\n", w);
                 return Error(DriverError::InternalError);
+            }
         }
     }
     auto [bytes, bits] = paramStream.getPos();
