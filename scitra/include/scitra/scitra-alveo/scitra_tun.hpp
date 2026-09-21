@@ -24,10 +24,9 @@
 #include "scitra/translator.hpp"
 #include "scitra/scitra-alveo/cli_args.hpp"
 #include "scitra/scitra-alveo/flow.hpp"
-#include "scitra/scitra-alveo/netlink.hpp"
 #include "scitra/scitra-alveo/socket.hpp"
-#include "scitra/scitra-alveo/tun.hpp"
-#include "scitra/scitra-alveo/dataplane/interface.hpp"
+#include "scitra/scitra-alveo/raw_socket.hpp"
+#include "scitra/scitra-alveo/dataplane/dataplane.hpp"
 
 #include "scion/asio/addresses.hpp"
 #include "scion/daemon/co_client.hpp"
@@ -119,40 +118,26 @@ private:
     scion::daemon::CoGrpcDaemonClient daemon;
     // Local AS information.
     scion::daemon::AsInfo localAS;
-    // Whether to accept SCMP packets at the dispatcher port.
-    const bool enableScmpDispatch;
     // Ports whose underlay sockets are always open.
     const std::vector<std::uint16_t> staticPorts;
-    // Configured number of queues in the TUN interface.
-    const std::uint32_t configQueues;
-    // Configured number of socket worker threads.
-    const std::uint32_t configThreads;
+    // UDP socket port for packets sent to the slow path
+    const std::uint16_t cpuPort;
 
     // Public underlay IP address used by SCION. Can be an IPv4 or IPv6 address.
     scion::generic::IPAddress publicIP;
     // SCION-mapped publicIP.
     scion::generic::IPAddress mappedIP;
-    // IPv6 address of the TUN interface. May be equal to mappedIP.
-    scion::generic::IPAddress tunIP;
-    // Additional IPv6 addresses of the TUN interface that provide additional
-    // endpoints to MPTCP.
-    std::vector<scion::generic::IPAddress> extraIPs;
-    // Name of the network interface used for SCION communication.
-    std::string netDevice;
-    // Name of the TUN interface.
-    std::string tunDevice;
+    // IPv6 address of the Alveo interface. May be equal to mappedIP.
+    scion::generic::IPAddress alveoIP;
 
     // Alveo OpenNIC shell driver
-    Dataplane dataplane;
-
-    // Queues of the TUN interface
-    std::vector<TunQueue> tunQueues;
+    std::unique_ptr<Dataplane> dataplane;
 
     // Mutex that must be held when accessing `sockets`
     mutable std::shared_mutex socketMutex;
-    // UDP sockets for communication with border routers and other SCION hosts.
-    // Indexed by local port.
-    std::map<std::uint16_t, std::shared_ptr<Socket>> sockets;
+
+    std::shared_ptr<Socket> cpuSocket;
+    RawSocket cpuRawSocket;
 
     // Mutex that must be held when accessing `flows`, `mpPortRemap`,
     // and `mpTokenMap`.
@@ -203,9 +188,9 @@ public:
     }
 
     generic::IPAddress getMappedAddress() const { return mappedIP; }
-    generic::IPAddress getTunAddress() const { return tunIP; }
-    std::string_view getPublicIfaceName() const { return netDevice; }
-    std::string_view getTunName() const { return tunDevice; }
+    generic::IPAddress getTunAddress() const { return alveoIP; }
+    std::string_view getPublicIfaceName() const { return ""; }
+    std::string_view getTunName() const { return ""; }
     std::span<const std::uint16_t> getStaticPorts() const { return staticPorts; }
 
     /// \brief Start refreshing paths to `dst` now. Returns immediately without
@@ -244,28 +229,16 @@ public:
     std::error_code reloadPathPolicy();
 
 private:
-    Maybe<std::shared_ptr<Socket>> openSocket(std::uint16_t port, bool persistent);
-    std::shared_ptr<Socket> getSocket(std::uint16_t port);
-    void closeSocket(std::uint16_t port);
     void maintainFlowsAndSockets();
 
     asio::awaitable<void> signalHandler();
     asio::awaitable<std::error_code> tick();
-    std::error_code translateIPtoScion(TunQueue& tun);
-    asio::awaitable<std::error_code> translateScionToIP(std::shared_ptr<Socket> socket);
+    asio::awaitable<std::error_code> slowPath();
 
     std::shared_ptr<Flow> getFlowEgress(
         const PacketBuffer& pkt, FlowID& id, const generic::IPEndpoint& localEp);
     std::shared_ptr<Flow> getFlowIngress(const FlowID& id, const generic::IPEndpoint& localEp);
     std::shared_ptr<Flow> findFlow(const FlowID& id);
-
-    std::error_code resetMptcpSubflow(
-        const std::shared_ptr<Flow>& flow, PacketBuffer& pkt,
-        TunQueue& tun, const std::chrono::steady_clock::time_point& recvd);
-    std::error_code rejectMptcpSubflow(
-        const std::shared_ptr<Flow>& flow, PacketBuffer& pkt,
-        const boost::asio::ip::udp::endpoint& nh,
-        const std::chrono::steady_clock::time_point& recvd);
 
     std::error_code beginPathQuery(SharedPathCache& cache, IsdAsn src, IsdAsn dst);
     Maybe<std::vector<PathPtr>> getPathsForFlow(const FlowID& flowid, std::uint8_t tc);

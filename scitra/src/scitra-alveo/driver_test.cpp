@@ -1,4 +1,4 @@
-#include "scitra/scitra-alveo/dataplane/interface.hpp"
+#include "scitra/scitra-alveo/dataplane/alveo.hpp"
 #include "scion/error_codes.hpp"
 
 #include <CLI/CLI.hpp>
@@ -8,7 +8,7 @@
 #include <iostream>
 
 std::string sysfile = "/sys/devices/pci0000:b2/0000:b2:00.0/0000:b3:00.0/resource2";
-Dataplane dp;
+Alveo dp;
 
 static void parseArgs(int argc, char* argv[])
 {

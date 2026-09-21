@@ -102,13 +102,13 @@ target_sources(scitra-alveo PRIVATE
     "src/translator.cpp"
     "src/scitra-alveo/error_codes.cpp"
     "src/scitra-alveo/main_tun.cpp"
-    "src/scitra-alveo/netlink.cpp"
     "src/scitra-alveo/scitra_tun.cpp"
     "src/scitra-alveo/service_systemd.cpp"
     "src/scitra-alveo/socket.cpp"
     "src/scitra-alveo/sys_net.cpp"
     "src/scitra-alveo/tui.cpp"
-    "src/scitra-alveo/dataplane/interface.cpp"
+    "src/scitra-alveo/dataplane/alveo.cpp"
+    "src/scitra-alveo/dataplane/dataplane.cpp"
     "src/scitra-alveo/dataplane/device.c"
     "src/scitra-alveo/dataplane/p4_target.c"
     "${CMAKE_CURRENT_BINARY_DIR}/version.cpp"
@@ -172,7 +172,8 @@ set_target_properties(scitra-alveo PROPERTIES
 add_executable(driver-test)
 target_sources(driver-test PRIVATE
     "src/scitra-alveo/driver_test.cpp"
-    "src/scitra-alveo/dataplane/interface.cpp"
+    "src/scitra-alveo/dataplane/alveo.cpp"
+    "src/scitra-alveo/dataplane/dataplane.cpp"
     "src/scitra-alveo/dataplane/device.c"
     "src/scitra-alveo/dataplane/p4_target.c"
 )

@@ -53,23 +53,18 @@ static std::unique_ptr<Arguments> parseCommandLine(int argc, char* argv[])
 
     auto args = std::make_unique<Arguments>();
     CLI::App app{"scitra-alveo: SCION-IP Translator for OpenNIC on Alveo Accelerators"};
+    app.add_option("--address", args->publicAddress,
+        "IP address for SCION. Must either be an IPv4 or SCION-mapped IPv6 address.")->required();
+    app.add_option("-a,--alveo-addr", args->alveoAddress,
+        "Override the address assigned to the Alveo device with another IPv6"
+        " address. By default, the TUN address is derived from the public"
+        " address.");
+    app.add_flag("--mock", args->mock, "Run with the mock dataplane.");
     app.add_option("--sysfile", args->sysfile, "Path to Alveo OpenNIC device in /sys.");
-    // -------
-    app.add_option("public_interface,--interface", args->publicInterface,
-        "Main network interface through which other SCION hosts can be reached");
-    app.add_option("public_address,--address", args->publicAddress,
-        "IP address for SCION. Must either be an IPv4 or SCION-mapped IPv6 address.");
-    app.add_option("-e,--extra", args->extraAddresses,
-        "Additional addresses assigned to the TUN interface for MPTCP connections.");
+    app.add_option("--cpu-port", args->cpuPort, "UDP port receiving packets for the slow path.");
     app.add_option("-d,--sciond", args->sciond,
         "SCION daemon address (default \"127.0.0.1:30255\")")
         ->envname("SCION_DAEMON_ADDRESS");
-    app.add_option("-n,--tun-name", args->tunDevice,
-        "Name of the TUN device created by scitra-alveo (default \"scion\")");
-    app.add_option("-a,--tun-addr", args->tunAddress,
-        "Override the address assigned to the TUN device with another IPv6"
-        " address. By default, the TUN address is derived from the public"
-        " address.");
     app.add_option("-u,--underlay-mtu", args->underlayMtu,
         "The minimum link-layer underlay PMTU to any SCION router or host in the"
         " local AS. Setting this value causes Scitra-TUN to ignore the AS-internal"
@@ -78,27 +73,12 @@ static std::unique_ptr<Arguments> parseCommandLine(int argc, char* argv[])
         "Override the default MTU of the TUN interface.");
     app.add_option("-p,--ports", args->ports,
         "One ore mote statically forwarded TCP/UDP ports separated by whitespace.");
-    app.add_option("-q,--queues", args->queues,
-        "Number of TUN queues and threads (default 1)")
-        ->check(CLI::Range(1, 64));
-    app.add_option("-t,--threads", args->threads,
-        "Number of socket worker threads (default 1)")
-        ->check(CLI::Range(1, 64));
     app.add_option("--policy", args->policy,
         "Path to a JSON file containing path policies");
     app.add_option("-l,--log-level", args->logLevel,
         "Log level (default: warning)")->transform(CLI::CheckedTransformer(logLevelMap));
     app.add_option("--log-file", args->logFile,
         "Path to log file. Log is written to stderr if this option is not given.");
-    app.add_flag("--scmp", args->enableScmpDispatch,
-        "Accept SCMP packets at the endhost/dispatcher port (30041/UDP)");
-    app.add_flag("--stun", args->stun, "Attempt NAT traversal");
-    app.add_option("--stun-port", args->stunPort,
-        "Port at which STUN servers are expected. If set to zero uses the same port as for SCION"
-        " (default 3478)");
-    app.add_option("--nat-timeout", args->stunTimeout,
-        "Timeout for NAT bindings. That is, after how many seconds of inactivity a STUN request"
-        " must be repeated. (default 30)");
     app.add_flag("--tui", args->tui, "Start with TUI");
     app.add_flag_function("--daemon", [](std::int64_t count) {
         if (count > 0) service::setRunningAsService();

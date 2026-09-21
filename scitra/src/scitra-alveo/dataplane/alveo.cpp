@@ -1,5 +1,6 @@
 #include <unistd.h>
-#include "scitra/scitra-alveo/dataplane/interface.hpp"
+#include "scitra/scitra-alveo/dataplane/dataplane.hpp"
+#include "scitra/scitra-alveo/dataplane/alveo.hpp"
 #include "scion/bit_stream.hpp"
 
 extern "C" {
@@ -22,10 +23,6 @@ using scion::Error;
 
 static constexpr size_t TARGET_COUNT = 3;
 
-//const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x200000;
-//const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x300000;
-//const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x400000;
-
 const XilVitisNetP4AddressType BASE_ADDR_IG_CLASSIFIER = 0x180000;
 const XilVitisNetP4AddressType BASE_ADDR_IG_TRANSLATOR = 0x1C0000;
 const XilVitisNetP4AddressType BASE_ADDR_EG_TRANSLATOR = 0x100000;
@@ -40,52 +37,6 @@ static Maybe<std::vector<std::byte>> formatActionParams(
 ////////////
 // Errors //
 ////////////
-
-struct DriverErrorCategory : public std::error_category
-{
-    const char* name() const noexcept override
-    {
-        return "driver";
-    }
-
-    std::string message(int code) const override
-    {
-        switch (static_cast<DriverError>(code)) {
-            case DriverError::Ok:
-                return "ok";
-            case DriverError::AlreadyOpen:
-                return "device already open";
-            case DriverError::SysfileAccess:
-                return "sysfile access error";
-            case DriverError::NotInitialized:
-                return "not initialized";
-            case DriverError::TargetInitFailed:
-                return "target IP initialization failed";
-            case DriverError::NotFound:
-                return "named entity not found";
-            case DriverError::TooFewArguments:
-                return "too few arguments";
-            case DriverError::NotImplemented:
-                return "not implemented";
-            case DriverError::InternalError:
-                return "internal error";
-            default:
-                return "unexpected error code";
-        }
-    }
-};
-
-static DriverErrorCategory driverErrorCategory;
-
-const std::error_category& driver_error_category()
-{
-    return driverErrorCategory;
-}
-
-std::error_code make_error_code(DriverError code)
-{
-    return {static_cast<int>(code), driverErrorCategory};
-}
 
 struct VitisNetErrorCategory : public std::error_category
 {
@@ -116,11 +67,12 @@ namespace std {
 template <> struct is_error_code_enum<XilVitisNetP4ReturnType> : true_type {};
 }
 
-//////////////////
-// DataplaneImp //
-//////////////////
 
-class DataplaneImp
+//////////////
+// AlveoImp //
+//////////////
+
+class AlveoImp
 {
 private:
     bool m_open = false;
@@ -130,7 +82,7 @@ private:
     Device m_device;
 
 public:
-    ~DataplaneImp()
+    ~AlveoImp()
     {
         close();
     }
@@ -208,7 +160,9 @@ public:
         auto target = &m_targets[prog];
         printf("=== %s ===\n", target->prog_name);
         if (target->counters == NULL) return DriverError::InternalError;
-        fprintf(stderr, "DEBUG printAllCounters: target=%p config=%p counters=%p CounterListSize=%u\n", (void*)target, (void*)target->config, (void*)target->counters, target->config ? target->config->CounterListSize : 999999);
+        spdlog::debug("printAllCounters: target={} config={} counters={} CounterListSize={}",
+            (void*)target, (void*)target->config, (void*)target->counters,
+            target->config ? target->config->CounterListSize : 999999);
         for (uint32_t i = 0; i < target->config->CounterListSize; ++i)
         {
             printf("%s =", target->config->CounterListPtr[i]->NameStringPtr);
@@ -257,7 +211,7 @@ public:
         auto response = formatActionParams(*cfg.ActionListPtr[actionId], params);
         if (!response) return response.error();
 
-        fprintf(stderr, "DEBUG tableInsert: key.data()=%p key.size()=%zu response.data()=%p response.size()=%zu\n",
+        spdlog::debug("tableInsert: key.data()={} key.size()={} response.data()={} response.size()={}",
             (void*)key->data(), key->size(), (void*)response->data(), response->size());
         // FIXED: added retry-with-reset for the known intermittent CAM
         // busy/INTERNAL_ASSERTION race. XilVitisNetP4TableReset operates
@@ -413,8 +367,8 @@ static Maybe<std::vector<std::byte>> formatKey(
         unsigned int width;
         char type;
         int n;
-        if (std::sscanf(p, "%u%c%n", &width, &type, &n) != 2) {  // FIXED: %n does not count toward sscanf's return value
-            fprintf(stderr, "DEBUG formatKey: sscanf failed on p='%s'\n", p);
+        if (std::sscanf(p, "%u%c%n", &width, &type, &n) != 2) {
+            spdlog::debug("formatKey: sscanf failed on p='{}'", p);
             return Error(DriverError::InternalError);
         }
         if (type != 'c')
@@ -423,7 +377,7 @@ static Maybe<std::vector<std::byte>> formatKey(
             if (k >= keys.size())
                 return Error(DriverError::TooFewArguments);
             if (!keyStream.serializeBits(keys[k++], std::min(w, 64), scion::NullStreamError)) {
-                fprintf(stderr, "DEBUG formatKey: serializeBits failed, w=%d\n", w);
+                spdlog::debug("formatKey: serializeBits failed, w={}\n", w);
                 return Error(DriverError::InternalError);
             }
         }
@@ -461,7 +415,7 @@ static Maybe<std::vector<std::byte>> formatActionParams(
             if (p >= params.size())
                 return Error(DriverError::TooFewArguments);
             if (!paramStream.serializeBits(params[p++], std::min(w, 64), scion::NullStreamError)) {
-                fprintf(stderr, "DEBUG formatActionParams: serializeBits failed, w=%d, paramBits total computed above\n", w);
+                spdlog::debug("formatActionParams: serializeBits failed, w={}, paramBits total computed above", w);
                 return Error(DriverError::InternalError);
             }
         }
@@ -471,32 +425,32 @@ static Maybe<std::vector<std::byte>> formatActionParams(
     return param;
 }
 
-///////////////
-// Dataplane //
-///////////////
+/////////////////////
+// Alveo Dataplane //
+/////////////////////
 
-Dataplane::Dataplane()
-    : imp(std::make_unique<DataplaneImp>())
+Alveo::Alveo()
+    : imp(std::make_unique<AlveoImp>())
 {}
 
-Dataplane::~Dataplane() = default;
+Alveo::~Alveo() = default;
 
-std::error_code Dataplane::initialize(const std::string& sysfile)
+std::error_code Alveo::initialize(const std::string& sysfile)
 {
     return imp->initialize(sysfile);
 }
 
-void Dataplane::close()
+void Alveo::close()
 {
     return imp->close();
 }
 
-std::error_code Dataplane::printAllCounters(P4Program prog)
+std::error_code Alveo::printAllCounters(P4Program prog)
 {
     return imp->printAllCounters(prog);
 }
 
-std::error_code Dataplane::tableInsert(
+std::error_code Alveo::tableInsert(
     P4Program prog, const char* name,
     std::span<std::uint64_t> keys,
     const char* action,
@@ -505,7 +459,7 @@ std::error_code Dataplane::tableInsert(
     return imp->tableInsert(prog, name, keys, action, params);
 }
 
-std::error_code Dataplane::tableUpdate(
+std::error_code Alveo::tableUpdate(
     P4Program prog, const char* name,
     std::span<std::uint64_t> keys,
     const char* action,
@@ -514,37 +468,37 @@ std::error_code Dataplane::tableUpdate(
     return imp->tableUpdate(prog, name, keys, action, params);
 }
 
-std::error_code Dataplane::tableDelete(
+std::error_code Alveo::tableDelete(
     P4Program prog, const char* name,
     std::span<std::uint64_t> keys)
 {
     return imp->tableDelete(prog, name, keys);
 }
 
-std::error_code Dataplane::counterReset(P4Program prog, const char* name)
+std::error_code Alveo::counterReset(P4Program prog, const char* name)
 {
     return imp->counterReset(prog, name);
 }
 
-Maybe<uint64_t> Dataplane::counterSimpleRead(
+Maybe<uint64_t> Alveo::counterSimpleRead(
     P4Program prog, const char* name, uint32_t index)
 {
     return imp->counterSimpleRead(prog, name, index);
 }
 
-std::error_code Dataplane::counterSimpleWrite(
+std::error_code Alveo::counterSimpleWrite(
     P4Program prog, const char* name, uint32_t index, uint64_t value)
 {
     return imp->counterSimpleWrite(prog, name, index, value);
 }
 
-Maybe<std::pair<uint64_t, uint64_t>> Dataplane::counterComboRead(
+Maybe<std::pair<uint64_t, uint64_t>> Alveo::counterComboRead(
     P4Program prog, const char* name, uint32_t index)
 {
     return imp->counterComboRead(prog, name, index);
 }
 
-std::error_code Dataplane::counterComboWrite(
+std::error_code Alveo::counterComboWrite(
     P4Program prog, const char* name, uint32_t index, uint64_t pkts, uint64_t bytes)
 {
     return imp->counterComboWrite(prog, name, index, pkts, bytes);
