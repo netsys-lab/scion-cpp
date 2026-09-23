@@ -101,10 +101,11 @@ public:
             return DriverError::SysfileAccess;
         }
 
-        sleep(1);
-        const auto st = device_read32(&m_device, 0x8204);
-        spdlog::info("Link status: link_up={} aligned={} hi_ber={} local_fault={} remote_fault={}",
-            st & 0x1, (st >> 1) & 0x1, (st >> 4) & 0x1, (st >> 6) & 0x1, (st >> 5) & 0x1);
+        const auto tx = device_read32(&m_device, 0x8200);
+        spdlog::info("Link TX status: local_fault={}", tx & 0x1);
+        const auto rx = device_read32(&m_device, 0x8204);
+        spdlog::info("Link RX status: link_up={} aligned={} hi_ber={} local_fault={} remote_fault={}",
+            rx & 0x1, (rx >> 1) & 0x1, (rx >> 4) & 0x1, (rx >> 6) & 0x1, (rx >> 5) & 0x1);
 
         spdlog::info("Initialize driver");
         spdlog::info("Ingress Classifier");
