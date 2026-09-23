@@ -102,7 +102,9 @@ public:
         }
 
         sleep(1);
-        spdlog::info("Link status: {}", device_read32(&m_device, 0x8204));
+        const auto st = device_read32(&m_device, 0x8204);
+        spdlog::info("Link status: link_up={} aligned={} hi_ber={} local_fault={} remote_fault={}",
+            st & 0x1, (st >> 1) & 0x1, (st >> 4) & 0x1, (st >> 6) & 0x1, (st >> 5) & 0x1);
 
         spdlog::info("Initialize driver");
         spdlog::info("Ingress Classifier");
