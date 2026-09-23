@@ -100,14 +100,9 @@ public:
         if (device_open(&m_device, m_sysfile.c_str())) {
             return DriverError::SysfileAccess;
         }
-        sleep(1); // ?
 
-        spdlog::info("Enable CMAC port 0");
-        device_write32(&m_device, 0x8014, 0x1);
-        device_write32(&m_device, 0x800c, 0x1);
-        printf("Read 0x8294: 0x%08x\n", device_read32(&m_device, 0x8204));
-        printf("Read 0x8294: 0x%08x\n", device_read32(&m_device, 0x8204));
-        sleep(1); // ?
+        sleep(1);
+        spdlog::info("Link status: {}", device_read32(&m_device, 0x8204));
 
         spdlog::info("Initialize driver");
         spdlog::info("Ingress Classifier");

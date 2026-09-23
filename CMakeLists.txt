@@ -69,28 +69,28 @@ find_package(Boost CONFIG REQUIRED COMPONENTS json)
 # Protobuf, gRPC
 # ==============
 
-find_package(protobuf CONFIG)
+# find_package(protobuf CONFIG)
 
 # Assume protobuf has been found even if Protobuf_FOUND is false when building
 # on Windows. FindProtobuf.cmake sets Protobuf_FOUND to false even if protobuf
 # works.
-if (Protobuf_FOUND OR WIN32)
+# if (Protobuf_FOUND OR WIN32)
 
-   set(GRPC_LIBS protobuf::libprotobuf)
+#    set(GRPC_LIBS protobuf::libprotobuf)
 
-else()
+# else()
 
-   find_package(PkgConfig)
-   pkg_check_modules(protobuf REQUIRED IMPORTED_TARGET protobuf)
+#    find_package(PkgConfig)
+#    pkg_check_modules(protobuf REQUIRED IMPORTED_TARGET protobuf)
 
-   add_Executable(protobuf::protoc IMPORTED)
-   find_program(PROTOC_EXECUTABLE protoc)
-   set_target_properties(protobuf::protoc PROPERTIES
-       IMPORTED_LOCATION "${PROTOC_EXECUTABLE}")
+#    add_Executable(protobuf::protoc IMPORTED)
+#    find_program(PROTOC_EXECUTABLE protoc)
+#    set_target_properties(protobuf::protoc PROPERTIES
+#        IMPORTED_LOCATION "${PROTOC_EXECUTABLE}")
 
-   set(GRPC_LIBS PkgConfig::protobuf)
+#    set(GRPC_LIBS PkgConfig::protobuf)
 
-endif()
+# endif()
 
 find_package(grpc CONFIG)
 
